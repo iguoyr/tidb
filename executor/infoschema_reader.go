@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/pingcap/tidb/plugin"
 	"io/ioutil"
 	"net/http"
 	"sort"
@@ -1027,6 +1028,21 @@ func (e *memtableRetriever) setDataFromEngines() {
 			"YES", // Savepoints
 		),
 	)
+	var engines = plugin.ListByKind(plugin.Engine)
+	if engines != nil {
+		for _, engine := range engines {
+			rows = append(rows,
+				types.MakeDatums(
+					engine.Name,  // Engine
+					"Plugin", // Support
+					engine.Description, // Comment
+					"No", // Transactions
+					"No", // XA
+					"No", // Savepoints
+				),
+			)
+		}
+	}
 	e.rows = rows
 }
 

@@ -11,6 +11,7 @@ require (
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548
 	github.com/cznic/sortutil v0.0.0-20181122101858-f5f958428db8
 	github.com/danjacques/gofslock v0.0.0-20191023191349-0a45f885bc37
+	github.com/davecgh/go-spew v1.1.1
 	github.com/dgraph-io/ristretto v0.0.1
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2
 	github.com/frankban/quicktest v1.11.1 // indirect
@@ -85,3 +86,5 @@ require (
 )
 
 go 1.13
+
+replace github.com/pingcap/parser v0.0.0-20210108074737-814a888e05e2 => /Users/daisy/GoProjects/src/github.com/pingcap/parser

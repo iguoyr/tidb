@@ -16,6 +16,7 @@ package executor
 import (
 	"bytes"
 	"context"
+	"github.com/pingcap/tidb/plugin"
 	"sort"
 	"strings"
 	"sync"
@@ -234,6 +235,8 @@ func (b *executorBuilder) build(p plannercore.Plan) Executor {
 		return b.buildAdminShowTelemetry(v)
 	case *plannercore.AdminResetTelemetryID:
 		return b.buildAdminResetTelemetryID(v)
+	case *plannercore.PhysicalTableScan:
+		return b.buildTableScan(v)
 	default:
 		if mp, ok := p.(MockPhysicalPlan); ok {
 			return mp.GetExecutor()
@@ -2600,6 +2603,16 @@ func (b *executorBuilder) buildTableReader(v *plannercore.PhysicalTableReader) E
 	}
 
 	ts := v.GetTableScan()
+	if ts.Table.Engine == "csv" {
+		if len(v.TablePlans) == 2 {
+			if tSelect, ok := v.TablePlans[1].(*plannercore.PhysicalSelection); ok {
+				return b.buildSelection(tSelect)
+			}
+
+		}
+		return b.buildTableScan(ts)
+	}
+
 	ret.ranges = ts.Ranges
 	sctx := b.ctx.GetSessionVars().StmtCtx
 	sctx.TableIDs = append(sctx.TableIDs, ts.Table.ID)
@@ -3917,6 +3930,19 @@ func (b *executorBuilder) buildAdminShowTelemetry(v *plannercore.AdminShowTeleme
 
 func (b *executorBuilder) buildAdminResetTelemetryID(v *plannercore.AdminResetTelemetryID) Executor {
 	return &AdminResetTelemetryIDExec{baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ID())}
+}
+
+func (b *executorBuilder) buildTableScan(v *plannercore.PhysicalTableScan) Executor {
+	plugin.Get(plugin.Engine, "csv")
+
+	// FIXME: only csv?
+	// FIXME: v.ExplainID()?
+	return &PluginScanExecutor{
+		baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ID()),
+		Plugin:       plugin.Get(plugin.Engine, "csv"),
+		Table:        v.Table,
+		Columns:      v.Columns,
+	}
 }
 
 func partitionPruning(ctx sessionctx.Context, tbl table.PartitionedTable, conds []expression.Expression, partitionNames []model.CIStr,

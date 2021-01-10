@@ -484,3 +484,11 @@ func getByName(pluginName string) *Plugin {
 	}
 	return nil
 }
+
+func ListByKind(kind Kind) []Plugin {
+	plugins := pluginGlobal.plugins()
+	if plugins == nil {
+		return nil
+	}
+	return plugins.plugins[kind]
+}
