@@ -306,6 +306,22 @@ var testHook *struct {
 	loadOne loadFn
 }
 
+func SetLoadFn(m interface{}) {
+	testHook = &struct {
+		loadOne loadFn
+	}{
+		loadOne: func(plugin *Plugin, dir string, pluginID ID) (manifest func() *Manifest, err error) {
+			return func() *Manifest {
+				return ExportManifest(m)
+			}, nil
+		},
+	}
+}
+
+func UnsetLoadFn() {
+	testHook = nil
+}
+
 func loadOne(dir string, pluginID ID) (plugin Plugin, err error) {
 	pName, pVersion, err := pluginID.Decode()
 	if err != nil {

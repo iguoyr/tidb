@@ -2,22 +2,22 @@ package main
 
 import (
 	"context"
+	"fmt"
 	. "github.com/pingcap/check"
 	"github.com/pingcap/parser"
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/plugin"
-	"github.com/pingcap/tidb/store/mockstore/mocktikv"
+	"github.com/pingcap/tidb/session"
+	"github.com/pingcap/tidb/store/mockstore"
+	"github.com/pingcap/tidb/store/mockstore/cluster"
 	"github.com/pingcap/tidb/util/mock"
 	"github.com/pingcap/tidb/util/testkit"
-	"os"
-	"path"
 	"testing"
 )
 
 type baseTestSuite struct {
-	cluster   *mocktikv.Cluster
-	mvccStore mocktikv.MVCCStore
+	cluster   cluster.Cluster
 	store     kv.Storage
 	domain    *domain.Domain
 	*parser.Parser
@@ -25,37 +25,27 @@ type baseTestSuite struct {
 }
 
 func (s *baseTestSuite) SetUpSuite(c *C) {
-	//s.Parser = parser.New()
-	//
-	//mvccStore, err := mocktikv.NewMVCCLevelDB("")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//s.cluster = mocktikv.NewCluster(mvccStore)
-	//mocktikv.BootstrapWithSingleStore(s.cluster)
-	//s.mvccStore = mocktikv.MustNewMVCCStore()
-	//store, err := mockstore.NewMockStore(mockstore.WithStoreType(mockstore.MockTiKV))
-	//c.Assert(err, IsNil)
-	//
-	//s.store, err = mockstore.NewMockStore(
-	//	mockstore.WithClusterInspector(func(c cluster.Cluster) {
-	//		mockstore.BootstrapWithSingleStore(c)
-	//		s.cluster = c
-	//	},mockstore.WithStoreType(mockstore.MockTiKV)),
-	//)
-	//c.Assert(err, IsNil)
-	//session.SetSchemaLease(0)
-	//session.DisableStats4Test()
-	//
-	//d, err := session.BootstrapSession(s.store)
-	//c.Assert(err, IsNil)
-	//d.SetStatsUpdating(true)
-	//s.domain = d
+	s.Parser = parser.New()
+	var err error
+	s.store, err = mockstore.NewMockStore(
+		mockstore.WithClusterInspector(func(c cluster.Cluster) {
+			mockstore.BootstrapWithSingleStore(c)
+			s.cluster = c
+		}),
+	)
+	c.Assert(err, IsNil)
+	session.SetSchemaLease(0)
+	session.DisableStats4Test()
+
+	d, err := session.BootstrapSession(s.store)
+	c.Assert(err, IsNil)
+	d.SetStatsUpdating(true)
+	s.domain = d
 }
 
 func (s *baseTestSuite) TearDownSuite(c *C) {
-	//s.domain.Close()
-	//s.store.Close()
+	s.domain.Close()
+	s.store.Close()
 }
 
 var _ = Suite(&testPlugin{&baseTestSuite{}})
@@ -69,49 +59,31 @@ func TestPlugin(t *testing.T) {
 func (s *testPlugin) TestPlugin(c *C) {
 	tk := testkit.NewTestKit(c, s.store)
 	ctx := context.Background()
-	workdir, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	pluginDir := path.Clean(path.Join(workdir, "../..", "out"))
 	var pluginVarNames []string
+	pluginName := "file"
+	pluginVersion := uint16(1)
 	cfg := plugin.Config{
-		Plugins:        []string{"file-1"},
-		PluginDir:      pluginDir,
+		Plugins:        []string{fmt.Sprintf("%s-%d", pluginName, pluginVersion)},
+		PluginDir:      "",
 		PluginVarNames: &pluginVarNames,
 	}
 
-	err = plugin.Load(ctx, cfg)
+	// setup load test hook.
+	plugin.SetLoadFn(NewManifest())
+	defer func() {
+		plugin.UnsetLoadFn()
+	}()
+
+	err := plugin.Load(ctx, cfg)
 	if err != nil {
 		panic(err)
 	}
 
 	// load and start TiDB domain.
-
 	err = plugin.Init(ctx, cfg)
 	if err != nil {
 		panic(err)
 	}
-
-	//manifest := &plugin.EngineManifest{
-	//	Manifest: plugin.Manifest{
-	//		Name: "file",
-	//	},
-	//	OnReaderOpen:  OnReaderOpen,
-	//	OnReaderNext:  OnReaderNext,
-	//	OnInsertOpen:  OnInsertOpen,
-	//	OnInsertNext:  OnInsertNext,
-	//	OnInsertClose: OnInsertClose,
-	//
-	//	OnCreateTable: OnCreateTable,
-	//	OnDropTable:   OnDropTable,
-	//}
-	//plugin.Set(plugin.Engine, &plugin.Plugin{
-	//	Manifest: plugin.ExportManifest(manifest),
-	//	Path:     "",
-	//	Disabled: 0,
-	//	State:    plugin.Ready,
-	//})
 
 	tk.MustExec("use test")
 	tk.MustExec("drop table if exists people")

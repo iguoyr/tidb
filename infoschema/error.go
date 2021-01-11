@@ -14,6 +14,7 @@
 package infoschema
 
 import (
+	"github.com/pingcap/parser/terror"
 	mysql "github.com/pingcap/tidb/errno"
 	"github.com/pingcap/tidb/util/dbterror"
 )
@@ -68,5 +69,6 @@ var (
 	// ErrTableLocked returns when the table was locked by other session.
 	ErrTableLocked = dbterror.ClassSchema.NewStd(mysql.ErrTableLocked)
 	// ErrWrongObject returns when the table/view/sequence is not the expected object.
-	ErrWrongObject = dbterror.ClassSchema.NewStd(mysql.ErrWrongObject)
+	ErrWrongObject   = dbterror.ClassSchema.NewStd(mysql.ErrWrongObject)
+	ErrorEngineError = terror.ClassSchema.NewStd(mysql.ErrGetErrno)
 )

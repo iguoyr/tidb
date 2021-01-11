@@ -1750,6 +1750,22 @@ func (d *ddl) CreateTable(ctx sessionctx.Context, s *ast.CreateTableStmt) (err e
 	if err != nil {
 		return errors.Trace(err)
 	}
+	//engine := findTableOption(s.Options, ast.TableOptionEngine, "InnoDB")
+	//var p *plugin.Plugin
+	//if engine != "InnoDB" {
+	//	p = plugin.Get(plugin.Engine, engine)
+	//	if p == nil {
+	//		return infoschema.ErrorEngineError.GenWithStackByArgs(404)
+	//	}
+	//	tbInfo.Engine = engine
+	//	pm := plugin.DeclareEngineManifest(p.Manifest)
+	//	err = pm.OnCreateTable(tbInfo)
+	//	if err != nil {
+	//		return err
+	//	}
+	//} else {
+	//	tbInfo.Engine = "InnoDB"
+	//}
 
 	if err = checkTableInfoValidWithStmt(ctx, tbInfo, s); err != nil {
 		return err
@@ -1960,6 +1976,19 @@ func (d *ddl) CreateView(ctx sessionctx.Context, s *ast.CreateViewStmt) (err err
 	}
 
 	return d.CreateTableWithInfo(ctx, s.ViewName.Schema, tbInfo, onExist, false /*tryRetainID*/)
+}
+
+func findTableOption(options []*ast.TableOption, tp ast.TableOptionType, _default string) string {
+	value := _default
+	for i := len(options) - 1; i >= 0; i-- {
+		op := options[i]
+		if op.Tp == tp {
+			// find the last one.
+			value = op.StrValue
+			break
+		}
+	}
+	return value
 }
 
 func buildViewInfo(ctx sessionctx.Context, s *ast.CreateViewStmt) (*model.ViewInfo, error) {

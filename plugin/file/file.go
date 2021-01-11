@@ -7,6 +7,7 @@ import (
 	"github.com/pingcap/parser/model"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/plugin"
+	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/util/chunk"
 	"io"
 	"os"
@@ -16,6 +17,35 @@ import (
 
 type ReadExecutor struct {
 	pos int
+}
+
+func NewManifest() *plugin.EngineManifest{
+	pluginName := "file"
+	pluginVersion := uint16(1)
+	return &plugin.EngineManifest{
+		Manifest: plugin.Manifest{
+			Kind:    plugin.Authentication,
+			Name:    pluginName,
+			Version: pluginVersion,
+			SysVars: map[string]*variable.SysVar{
+				pluginName + "_key": {
+					Scope: variable.ScopeGlobal,
+					Name:  pluginName + "_key",
+					Value: "v1",
+				},
+			},
+			OnInit:     OnInit,
+			OnShutdown: OnShutdown,
+			Validate:   Validate,
+		},
+		OnInsertOpen:  OnInsertOpen,
+		OnInsertClose: OnInsertClose,
+		OnInsertNext:  OnInsertNext,
+		OnReaderOpen:  OnReaderOpen,
+		OnReaderNext:  OnReaderNext,
+		OnCreateTable: OnCreateTable,
+		OnDropTable:   OnDropTable,
+	}
 }
 
 var Files = make(map[string]*bufio.Reader)
