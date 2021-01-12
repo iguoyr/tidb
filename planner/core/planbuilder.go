@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"github.com/pingcap/tidb/plugin"
 	"strings"
 	"time"
 
@@ -1253,6 +1254,10 @@ func (b *PlanBuilder) buildPhysicalIndexLookUpReader(ctx context.Context, dbName
 		physicalTableID:  physicalID,
 		isPartition:      isPartition,
 	}.Init(b.ctx, b.getSelectOffset())
+	if plugin.HasEngine(tblInfo.Engine) {
+		is.StoreType = kv.PluginEngine
+		is.EngineName = tblInfo.Engine
+	}
 	// There is no alternative plan choices, so just use pseudo stats to avoid panic.
 	is.stats = &property.StatsInfo{HistColl: &(statistics.PseudoTable(tblInfo)).HistColl}
 	if hasCommonCols {

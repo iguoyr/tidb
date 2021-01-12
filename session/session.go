@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/pingcap/tidb/plugin/file"
 	"net"
 	"runtime/trace"
 	"strconv"
@@ -2090,6 +2091,11 @@ func loadParameter(se *session, name string) (string, error) {
 func BootstrapSession(store kv.Storage) (*domain.Domain, error) {
 	cfg := config.GetGlobalConfig()
 	if len(cfg.Plugin.Load) > 0 {
+		// FIXME: hack load plugin
+		plugin.SetLoadFn(file.NewManifest())
+		defer func() {
+			plugin.UnsetLoadFn()
+		}()
 		err := plugin.Load(context.Background(), plugin.Config{
 			Plugins:        strings.Split(cfg.Plugin.Load, ","),
 			PluginDir:      cfg.Plugin.Dir,

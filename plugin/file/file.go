@@ -1,4 +1,4 @@
-package main
+package file
 
 import (
 	"bufio"
@@ -24,7 +24,7 @@ func NewManifest() *plugin.EngineManifest{
 	pluginVersion := uint16(1)
 	return &plugin.EngineManifest{
 		Manifest: plugin.Manifest{
-			Kind:    plugin.Authentication,
+			Kind:    plugin.Engine,
 			Name:    pluginName,
 			Version: pluginVersion,
 			SysVars: map[string]*variable.SysVar{
@@ -52,19 +52,19 @@ var Files = make(map[string]*bufio.Reader)
 
 // Validate implements TiDB plugin's Validate SPI.
 func Validate(ctx context.Context, m *plugin.Manifest) error {
-	fmt.Println("csv plugin validate")
+	fmt.Println("file plugin validate")
 	return nil
 }
 
 // OnInit implements TiDB plugin's OnInit SPI.
 func OnInit(ctx context.Context, manifest *plugin.Manifest) error {
-	fmt.Println("csv init called")
+	fmt.Println("file init called")
 	return nil
 }
 
 // OnShutdown implements TiDB plugin's OnShutdown SPI.
 func OnShutdown(ctx context.Context, manifest *plugin.Manifest) error {
-	fmt.Println("csv shutdown called")
+	fmt.Println("file shutdown called")
 	return nil
 }
 

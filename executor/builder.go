@@ -2593,6 +2593,22 @@ func (b *executorBuilder) buildMPPGather(v *plannercore.PhysicalTableReader) Exe
 // buildTableReader builds a table reader executor. It first build a no range table reader,
 // and then update it ranges from table scan plan.
 func (b *executorBuilder) buildTableReader(v *plannercore.PhysicalTableReader) Executor {
+	ts := v.GetTableScan()
+	if plugin.HasEngine(ts.Table.Engine) {
+		if len(v.TablePlans) == 2 {
+			p := plugin.Get(plugin.Engine, ts.Table.Engine)
+			pm := plugin.DeclareEngineManifest(p.Manifest)
+
+			if tSelect, ok := v.TablePlans[1].(*plannercore.PhysicalSelection); ok {
+				if pm.OnSelectReaderNext != nil {
+					return b.buildReaderWithSelection(tSelect, p, ts)
+				}
+				return b.buildSelection(tSelect)
+			}
+		}
+
+		return b.buildTableScan(ts)
+	}
 	if useMPPExecution(b.ctx, v) {
 		return b.buildMPPGather(v)
 	}
@@ -2602,7 +2618,6 @@ func (b *executorBuilder) buildTableReader(v *plannercore.PhysicalTableReader) E
 		return nil
 	}
 
-	ts := v.GetTableScan()
 	if ts.Table.Engine == "csv" {
 		if len(v.TablePlans) == 2 {
 			if tSelect, ok := v.TablePlans[1].(*plannercore.PhysicalSelection); ok {
@@ -2671,6 +2686,15 @@ func (b *executorBuilder) buildTableReader(v *plannercore.PhysicalTableReader) E
 	}
 
 	return ret
+}
+
+func (b *executorBuilder) buildReaderWithSelection(v *plannercore.PhysicalSelection, p *plugin.Plugin, c *plannercore.PhysicalTableScan) Executor {
+	return &PluginSelectionExec{
+		baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ID()),
+		Plugin:       p,
+		filter:       v.Conditions,
+		Table:        c.Table,
+	}
 }
 
 func buildPartitionTable(b *executorBuilder, tblInfo *model.TableInfo, partitionInfo *plannercore.PartitionInfo, e Executor, n nextPartition) (Executor, error) {
@@ -3933,13 +3957,9 @@ func (b *executorBuilder) buildAdminResetTelemetryID(v *plannercore.AdminResetTe
 }
 
 func (b *executorBuilder) buildTableScan(v *plannercore.PhysicalTableScan) Executor {
-	plugin.Get(plugin.Engine, "csv")
-
-	// FIXME: only csv?
-	// FIXME: v.ExplainID()?
 	return &PluginScanExecutor{
 		baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ID()),
-		Plugin:       plugin.Get(plugin.Engine, "csv"),
+		Plugin:       plugin.Get(plugin.Engine, v.EngineName),
 		Table:        v.Table,
 		Columns:      v.Columns,
 	}

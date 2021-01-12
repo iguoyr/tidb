@@ -79,6 +79,8 @@ type PhysicalTableReader struct {
 
 	// Used by partition table.
 	PartitionInfo PartitionInfo
+
+	EngineName string
 }
 
 // PartitionInfo indicates partition helper info in physical plan.
@@ -376,6 +378,9 @@ type PhysicalIndexScan struct {
 	DoubleRead bool
 
 	NeedCommonHandle bool
+
+	StoreType  kv.StoreType
+	EngineName string
 }
 
 // Clone implements PhysicalPlan interface.
@@ -471,6 +476,8 @@ type PhysicalTableScan struct {
 	PartitionInfo PartitionInfo
 
 	SampleInfo *TableSampleInfo
+
+	EngineName string
 }
 
 // Clone implements PhysicalPlan interface.

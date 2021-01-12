@@ -20,6 +20,7 @@ package ddl
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/pingcap/tidb/plugin"
 	"math"
 	"strconv"
 	"strings"
@@ -1750,22 +1751,22 @@ func (d *ddl) CreateTable(ctx sessionctx.Context, s *ast.CreateTableStmt) (err e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	//engine := findTableOption(s.Options, ast.TableOptionEngine, "InnoDB")
-	//var p *plugin.Plugin
-	//if engine != "InnoDB" {
-	//	p = plugin.Get(plugin.Engine, engine)
-	//	if p == nil {
-	//		return infoschema.ErrorEngineError.GenWithStackByArgs(404)
-	//	}
-	//	tbInfo.Engine = engine
-	//	pm := plugin.DeclareEngineManifest(p.Manifest)
-	//	err = pm.OnCreateTable(tbInfo)
-	//	if err != nil {
-	//		return err
-	//	}
-	//} else {
-	//	tbInfo.Engine = "InnoDB"
-	//}
+	engine := findTableOption(s.Options, ast.TableOptionEngine, "InnoDB")
+	var p *plugin.Plugin
+	if engine != "InnoDB" {
+		p = plugin.Get(plugin.Engine, engine)
+		if p == nil {
+			return infoschema.ErrorEngineError.GenWithStackByArgs(404)
+		}
+		tbInfo.Engine = engine
+		pm := plugin.DeclareEngineManifest(p.Manifest)
+		err = pm.OnCreateTable(tbInfo)
+		if err != nil {
+			return err
+		}
+	} else {
+		tbInfo.Engine = "InnoDB"
+	}
 
 	if err = checkTableInfoValidWithStmt(ctx, tbInfo, s); err != nil {
 		return err
@@ -4427,6 +4428,17 @@ func (d *ddl) DropTable(ctx sessionctx.Context, ti ast.Ident) (err error) {
 	}
 	if tb.Meta().IsSequence() {
 		return infoschema.ErrTableNotExists.GenWithStackByArgs(ti.Schema, ti.Name)
+	}
+
+	if plugin.HasEngine(tb.Meta().Engine) {
+		p := plugin.Get(plugin.Engine, tb.Meta().Engine)
+		pm := plugin.DeclareEngineManifest(p.Manifest)
+		if pm.OnDropTable != nil {
+			err = pm.OnDropTable(tb.Meta())
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	job := &model.Job{
