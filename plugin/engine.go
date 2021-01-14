@@ -1,10 +1,10 @@
 package plugin
 
 import (
+	"context"
 	"github.com/pingcap/parser/model"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/util/chunk"
-	"golang.org/x/net/context"
 )
 
 type EngineManifest struct {
@@ -22,13 +22,12 @@ type EngineManifest struct {
 
 	OnDropTable   func(tb *model.TableInfo) error
 	OnCreateTable func(tb *model.TableInfo) error
-
-	GetSchema func() *expression.Schema
 }
 
 type ExecutorMeta struct {
-	Table  *model.TableInfo
-	Schema *expression.Schema
+	Table       *model.TableInfo
+	Schema      *expression.Schema
+	Columns        []*model.ColumnInfo
 }
 
 func HasEngine(name string) bool {

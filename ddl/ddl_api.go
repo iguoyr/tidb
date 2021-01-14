@@ -1760,9 +1760,11 @@ func (d *ddl) CreateTable(ctx sessionctx.Context, s *ast.CreateTableStmt) (err e
 		}
 		tbInfo.Engine = engine
 		pm := plugin.DeclareEngineManifest(p.Manifest)
-		err = pm.OnCreateTable(tbInfo)
-		if err != nil {
-			return err
+		if pm.OnCreateTable!=nil{
+			err = pm.OnCreateTable(tbInfo)
+			if err != nil {
+				return err
+			}
 		}
 	} else {
 		tbInfo.Engine = "InnoDB"

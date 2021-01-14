@@ -16,6 +16,7 @@ package executor
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"github.com/pingcap/tidb/plugin"
 	"sort"
 	"strings"
@@ -778,6 +779,14 @@ func (b *executorBuilder) buildInsert(v *plannercore.Insert) Executor {
 	insert := &InsertExec{
 		InsertValues: ivs,
 		OnDuplicate:  append(v.OnDuplicate, v.GenCols.OnDuplicates...),
+	}
+	fmt.Println(">>>>>", v.Table.Meta().Engine, v.Table.Meta().Name.String())
+	if plugin.HasEngine(v.Table.Meta().Engine) {
+		return &PluginInsertExec{
+			Plugin:       plugin.Get(plugin.Engine, v.Table.Meta().Engine),
+			InsertE:      insert,
+			baseExecutor: baseExec,
+		}
 	}
 	return insert
 }
@@ -2606,7 +2615,6 @@ func (b *executorBuilder) buildTableReader(v *plannercore.PhysicalTableReader) E
 				return b.buildSelection(tSelect)
 			}
 		}
-
 		return b.buildTableScan(ts)
 	}
 	if useMPPExecution(b.ctx, v) {
@@ -2616,16 +2624,6 @@ func (b *executorBuilder) buildTableReader(v *plannercore.PhysicalTableReader) E
 	if err != nil {
 		b.err = err
 		return nil
-	}
-
-	if ts.Table.Engine == "csv" {
-		if len(v.TablePlans) == 2 {
-			if tSelect, ok := v.TablePlans[1].(*plannercore.PhysicalSelection); ok {
-				return b.buildSelection(tSelect)
-			}
-
-		}
-		return b.buildTableScan(ts)
 	}
 
 	ret.ranges = ts.Ranges
@@ -2694,6 +2692,7 @@ func (b *executorBuilder) buildReaderWithSelection(v *plannercore.PhysicalSelect
 		Plugin:       p,
 		filter:       v.Conditions,
 		Table:        c.Table,
+		Columns:  c.Columns,
 	}
 }
 

@@ -19,18 +19,10 @@ type PluginScanExecutor struct {
 	meta    *plugin.ExecutorMeta
 }
 
-func (e *PluginScanExecutor) Init() *PluginScanExecutor {
-	//pm := plugin.DeclareEngineManifest(e.Plugin.Manifest)
-	//if pm.GetSchema != nil {
-	//	e.baseExecutor.schema = pm.GetSchema()
-	//}
-	return e
-}
-
 func (e *PluginScanExecutor) Open(ctx context.Context) error {
 	e.pm = plugin.DeclareEngineManifest(e.Plugin.Manifest)
 	e.meta = &plugin.ExecutorMeta{
-		Table: e.Table,
+		Table:  e.Table,
 		Schema: e.baseExecutor.Schema(),
 	}
 	if e.pm.OnReaderOpen != nil {
@@ -60,7 +52,7 @@ type PluginInsertExec struct {
 func (e *PluginInsertExec) Open(ctx context.Context) error {
 	e.pm = plugin.DeclareEngineManifest(e.Plugin.Manifest)
 	e.meta = &plugin.ExecutorMeta{
-		Table: e.InsertE.Table.Meta(),
+		Table:  e.InsertE.Table.Meta(),
 		Schema: e.baseExecutor.Schema(),
 	}
 	return e.pm.OnInsertOpen(ctx, e.meta)
@@ -76,18 +68,20 @@ func (e *PluginInsertExec) Close() error {
 
 type PluginSelectionExec struct {
 	baseExecutor
-	Plugin *plugin.Plugin
-	pm     *plugin.EngineManifest
-	filter []expression.Expression
-	meta   *plugin.ExecutorMeta
-	Table  *model.TableInfo
+	Plugin  *plugin.Plugin
+	pm      *plugin.EngineManifest
+	filter  []expression.Expression
+	meta    *plugin.ExecutorMeta
+	Table   *model.TableInfo
+	Columns []*model.ColumnInfo
 }
 
 func (e *PluginSelectionExec) Open(ctx context.Context) error {
 	e.pm = plugin.DeclareEngineManifest(e.Plugin.Manifest)
 	e.meta = &plugin.ExecutorMeta{
-		Table: e.Table,
-		Schema: e.baseExecutor.Schema(),
+		Table:   e.Table,
+		Schema:  e.baseExecutor.Schema(),
+		Columns: e.Columns,
 	}
 	if e.pm.OnSelectReaderOpen != nil {
 		return e.pm.OnSelectReaderOpen(ctx, e.filter, e.meta)

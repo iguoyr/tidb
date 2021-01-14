@@ -15,10 +15,6 @@ import (
 	"strings"
 )
 
-type ReadExecutor struct {
-	pos int
-}
-
 func NewManifest() *plugin.EngineManifest{
 	pluginName := "file"
 	pluginVersion := uint16(1)

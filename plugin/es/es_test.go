@@ -1,4 +1,4 @@
-package file
+package es
 
 import (
 	"context"
@@ -57,10 +57,12 @@ func TestPlugin(t *testing.T) {
 }
 
 func (s *testPlugin) TestPlugin(c *C) {
+	var result *testkit.Result
 	tk := testkit.NewTestKit(c, s.store)
+
 	ctx := context.Background()
 	var pluginVarNames []string
-	pluginName := "file"
+	pluginName := "elasticsearch"
 	pluginVersion := uint16(1)
 	cfg := plugin.Config{
 		Plugins:        []string{fmt.Sprintf("%s-%d", pluginName, pluginVersion)},
@@ -86,20 +88,30 @@ func (s *testPlugin) TestPlugin(c *C) {
 	}
 
 	tk.MustExec("use test")
-	tk.MustExec("drop table if exists people")
-	tk.MustExec("drop table if exists city")
-	// TODO fix create table sql
-	tk.MustExec("create table people(city int, name char(255)) ENGINE = file")
-	tk.MustExec("insert into people values(1, 'lfkdsk')")
-	tk.MustExec("insert into people values(2, 'wph95')")
-	tk.MustExec("insert into people values(2, 'guest')")
-	result := tk.MustQuery("select * from people")
-	result.Check(testkit.Rows("1 lfkdsk", "2 wph95", "2 guest"))
-	result = tk.MustQuery("select * from people where city = 2")
-	result.Check(testkit.Rows("2 wph95", "2 guest"))
-	tk.MustExec("create table city(id int, cityName char(255))")
-	tk.MustExec("insert into city values(1, 'beijing')")
-	tk.MustExec("insert into city values(2, 'shanghai')")
-	result = tk.MustQuery("SELECT city.cityName,people.name FROM city INNER JOIN people ON city.id=people.city")
-	result.Check(testkit.Rows("beijing lfkdsk", "shanghai guest", "shanghai wph95"))
+	tk.MustExec("create table logs(ID int, body text, query text) engine=elasticsearch")
+	result = tk.MustQuery("select body->'$.status' as Status from logs where query='!(status:200) OR error'")
+	result.Check(testkit.Rows("500", "500", "401"))
+	result = tk.MustQuery(`SELECT body->'$.IP' as ip FROM logs where query='!(status:200) OR error'`)
+	result.Check(testkit.Rows(`"3.0.0.201"`, `"2.0.0.222"`, `"2.0.0.223"`))
+
+	tk.MustExec("drop table if exists blacklist")
+	tk.MustExec("create table blacklist(ip char(255), level int, message char(255))")
+	tk.MustExec(`insert into blacklist values("2.0.0.220", 1, "shanghai.0")`)
+	tk.MustExec(`insert into blacklist values("2.0.0.222", 3, "ip: 2.0.0.222 此 ip 高危 ") ,
+("2.0.0.223", 3, "2.0.0.223: 此 ip 高危 "),
+("1.0.0.220", 2, "beijing.3"),
+("4.5.6.7", 2, "")`)
+	result = tk.MustQuery(`Select * from blacklist`)
+	result.Check(testkit.Rows("2.0.0.220 1 shanghai.0",
+		"2.0.0.222 3 ip: 2.0.0.222 此 ip 高危",
+		"2.0.0.223 3 2.0.0.223: 此 ip 高危",
+		"1.0.0.220 2 beijing.3",
+		"4.5.6.7 2 "))
+
+	result = tk.MustQuery(`SELECT blacklist.* FROM blacklist INNER JOIN
+(SELECT body->'$.IP' as ip FROM logs where query='!(status:200) OR error')
+AS logs ON logs.ip=blacklist.ip`)
+	result.Check(testkit.Rows(
+		`2.0.0.222 3 ip: 2.0.0.222 此 ip 高危`,
+		`2.0.0.223 3 2.0.0.223: 此 ip 高危`))
 }
