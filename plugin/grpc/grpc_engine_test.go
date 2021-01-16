@@ -94,8 +94,12 @@ func (s *testPlugin) TestPlugin(c *C) {
 	result.Check(testkit.Rows("GET /api5", "GET /api3", "GET /api2"))
 
 	tk.MustExec("drop table if exists root_span")
-	tk.MustExec("create table root_span(span_id int, span_kind char(255), msg char(255))")
-	tk.MustExec(`insert into root_span values(1, "GET /api1", "msg 1")`)
+	tk.MustExec(`create table root_span(timeStamp char(255),
+span_id int,
+trace_id int,
+span_kind char(255),
+duration char(255))`)
+	tk.MustExec(`insert into root_span values("02:13:13", "750dc35a-3eaa-4d13-bfdb-3a834f05a538","750dc35a-3eaa-4d13-bfdb-3a834f05a538",)`)
 	tk.MustExec(`insert into root_span values(2, "GET /api2", "msg 2") ,
 (3, "GET /api3", "msg 3"),(4, "GET /api4", "msg 4"),(5, "GET /api5", "msg 5")`)
 	result = tk.MustQuery(`Select * from root_span`)
