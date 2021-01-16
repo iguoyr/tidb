@@ -2091,7 +2091,7 @@ func BootstrapSession(store kv.Storage) (*domain.Domain, error) {
 	cfg := config.GetGlobalConfig()
 	if len(cfg.Plugin.Load) > 0 {
 		// FIXME: hack load plugin
-		//plugin.SetLoadFn(file.NewManifest())
+		//plugin.SetLoadFn(grpc_engine.NewManifest())
 		//defer func() {
 		//	plugin.UnsetLoadFn()
 		//}()

@@ -1720,6 +1720,11 @@ func (d *ddl) assignPartitionIDs(defs []model.PartitionDefinition) error {
 	return nil
 }
 
+func (d *ddl) CreateForeignServer(ctx sessionctx.Context, s *ast.CreateServerStmt) (err error) {
+
+	return nil
+}
+
 func (d *ddl) CreateTable(ctx sessionctx.Context, s *ast.CreateTableStmt) (err error) {
 	ident := ast.Ident{Schema: s.Table.Schema, Name: s.Table.Name}
 	is := d.GetInfoSchemaWithInterceptor(ctx)
@@ -1751,16 +1756,16 @@ func (d *ddl) CreateTable(ctx sessionctx.Context, s *ast.CreateTableStmt) (err e
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	engine := findTableOption(s.Options, ast.TableOptionEngine, "InnoDB")
-	var p *plugin.Plugin
 	if engine != "InnoDB" {
-		p = plugin.Get(plugin.Engine, engine)
+		p := plugin.Get(plugin.Engine, engine)
 		if p == nil {
 			return infoschema.ErrorEngineError.GenWithStackByArgs(404)
 		}
 		tbInfo.Engine = engine
 		pm := plugin.DeclareEngineManifest(p.Manifest)
-		if pm.OnCreateTable!=nil{
+		if pm.OnCreateTable != nil {
 			err = pm.OnCreateTable(tbInfo)
 			if err != nil {
 				return err

@@ -56,18 +56,19 @@ var (
 //
 
 var (
-	mMetaPrefix       = []byte("m")
-	mNextGlobalIDKey  = []byte("NextGlobalID")
-	mSchemaVersionKey = []byte("SchemaVersionKey")
-	mDBs              = []byte("DBs")
-	mDBPrefix         = "DB"
-	mTablePrefix      = "Table"
-	mSequencePrefix   = "SID"
-	mSeqCyclePrefix   = "SequenceCycle"
-	mTableIDPrefix    = "TID"
-	mRandomIDPrefix   = "TARID"
-	mBootstrapKey     = []byte("BootstrapKey")
-	mSchemaDiffPrefix = "Diff"
+	mMetaPrefix          = []byte("m")
+	mNextGlobalIDKey     = []byte("NextGlobalID")
+	mSchemaVersionKey    = []byte("SchemaVersionKey")
+	mDBs                 = []byte("DBs")
+	mDBPrefix            = "DB"
+	mForeignServerPrefix = "Server"
+	mTablePrefix         = "Table"
+	mSequencePrefix      = "SID"
+	mSeqCyclePrefix      = "SequenceCycle"
+	mTableIDPrefix       = "TID"
+	mRandomIDPrefix      = "TARID"
+	mBootstrapKey        = []byte("BootstrapKey")
+	mSchemaDiffPrefix    = "Diff"
 )
 
 var (
@@ -152,6 +153,10 @@ func (m *Meta) autoTableIDKey(tableID int64) []byte {
 
 func (m *Meta) autoRandomTableIDKey(tableID int64) []byte {
 	return []byte(fmt.Sprintf("%s:%d", mRandomIDPrefix, tableID))
+}
+
+func (m *Meta) foreignServerKey(serverID int64) []byte {
+	return []byte(fmt.Sprintf("%s:%d", mForeignServerPrefix, serverID))
 }
 
 func (m *Meta) tableKey(tableID int64) []byte {
@@ -281,6 +286,15 @@ func (m *Meta) checkDBNotExists(dbKey []byte) error {
 	return errors.Trace(err)
 }
 
+// TODO add server meta
+func (m *Meta)checkForeignServerExists(dbKey []byte, serverKey []byte)error{
+	v, err := m.txn.HGet(dbKey, serverKey)
+	if err == nil && v == nil {
+		err = ErrTableNotExists.GenWithStack("table doesn't exist")
+	}
+	return errors.Trace(err)
+}
+
 func (m *Meta) checkTableExists(dbKey []byte, tableKey []byte) error {
 	v, err := m.txn.HGet(dbKey, tableKey)
 	if err == nil && v == nil {
@@ -327,6 +341,16 @@ func (m *Meta) UpdateDatabase(dbInfo *model.DBInfo) error {
 	}
 
 	return m.txn.HSet(mDBs, dbKey, data)
+}
+
+func (m *Meta) CreateForeignServer(dbID int64, serverInfo *model.ForeignServerInfo) error {
+	// Check if db exists.
+	dbKey := m.dbKey(dbID)
+	if err := m.checkDBExists(dbKey); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 // CreateTableOrView creates a table with tableInfo in database.

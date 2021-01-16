@@ -25,16 +25,6 @@ type EngineManifest struct {
 }
 
 type ExecutorMeta struct {
-	Table       *model.TableInfo
-	Schema      *expression.Schema
-	Columns        []*model.ColumnInfo
-}
-
-func HasEngine(name string) bool {
-	p := Get(Engine, name)
-	if p != nil {
-		return true
-	}
-
-	return false
+	Table   *model.TableInfo
+	Columns []*model.ColumnInfo
 }

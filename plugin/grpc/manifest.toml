@@ -1,6 +1,6 @@
-name = "es"
+name = "grpc"
 kind = "Engine"
-description = "es support"
+description = "grpc support"
 version = "1"
 license = ""
 validate = "Validate"

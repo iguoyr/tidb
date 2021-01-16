@@ -62,7 +62,7 @@ func (s *testPlugin) TestPlugin(c *C) {
 
 	ctx := context.Background()
 	var pluginVarNames []string
-	pluginName := "elasticsearch"
+	pluginName := "grpc"
 	pluginVersion := uint16(1)
 	cfg := plugin.Config{
 		Plugins:        []string{fmt.Sprintf("%s-%d", pluginName, pluginVersion)},
@@ -88,33 +88,45 @@ func (s *testPlugin) TestPlugin(c *C) {
 	}
 
 	tk.MustExec("use test")
-	tk.MustExec("create table logs(ID int, body text, query text) engine=elasticsearch")
-	result = tk.MustQuery("select body->'$.status' as Status from logs where query='!(status:200) OR error'")
-	result.Check(testkit.Rows("500", "500", "401"))
-	result = tk.MustQuery(`SELECT body->'$.IP' as ip FROM logs where query='!(status:200) OR error'`)
-	result.Check(testkit.Rows(`"3.0.0.201"`, `"2.0.0.222"`, `"2.0.0.223"`))
+	tk.MustExec("create server prometheus1 foreign data wrapper grpc address=127.0.0.1 port=9091")
+	tk.MustExec("create table proms_metric(span_kind char(255), duration int(64), query text) engine=grpc")
+	result = tk.MustQuery("select span_kind from proms_metric where query='topk(3, sum by (span_kind) (rate(query_response_time[5m])))'")
+	result.Check(testkit.Rows("GET /api5", "GET /api3", "GET /api2"))
 
-	tk.MustExec("drop table if exists blacklist")
-	tk.MustExec("create table blacklist(ip char(255), level int, message char(255))")
-	tk.MustExec(`insert into blacklist values("2.0.0.220", 1, "shanghai.0")`)
-	tk.MustExec(`insert into blacklist values("2.0.0.222", 3, "ip: 2.0.0.222 此 ip 高危 ") ,
-("2.0.0.223", 3, "2.0.0.223: 此 ip 高危 "),
-("1.0.0.220", 2, "beijing.3"),
-("4.5.6.7", 2, "")`)
-	result = tk.MustQuery(`Select * from blacklist`)
-	result.Check(testkit.Rows("2.0.0.220 1 shanghai.0",
-		"2.0.0.222 3 ip: 2.0.0.222 此 ip 高危",
-		"2.0.0.223 3 2.0.0.223: 此 ip 高危",
-		"1.0.0.220 2 beijing.3",
-		"4.5.6.7 2 "))
+	tk.MustExec("drop table if exists root_span")
+	tk.MustExec("create table root_span(span_id int, span_kind char(255), msg char(255))")
+	tk.MustExec(`insert into root_span values(1, "GET /api1", "msg 1")`)
+	tk.MustExec(`insert into root_span values(2, "GET /api2", "msg 2") ,
+(3, "GET /api3", "msg 3"),(4, "GET /api4", "msg 4"),(5, "GET /api5", "msg 5")`)
+	result = tk.MustQuery(`Select * from root_span`)
+	result.Check(testkit.Rows("1 GET /api1 msg 1",
+		"2 GET /api2 msg 2",
+		"3 GET /api3 msg 3",
+		"4 GET /api4 msg 4",
+		"5 GET /api5 msg 5"))
 
-	result = tk.MustQuery(`SELECT blacklist.* FROM blacklist
+	result = tk.MustQuery(`
+SELECT root_span.span_id, root_span.span_kind
+From root_span
 INNER JOIN
 (
-SELECT body->'$.IP' as ip FROM logs where query='!(status:200) OR error'
+   select span_kind
+   From proms_metric
+   Where query='topk(3, sum by (span_kind) (rate(span_duration[5m])))'
 )
-AS logs ON logs.ip=blacklist.ip`)
+proms_metric ON proms_metric.span_kind=root_span.span_kind`)
+
+	//	result = tk.MustQuery(`SELECT tidb_spans.time, tidb_spans.duration, es_logs.msg
+	//From tidb_spans
+	//INNER JOIN es_logs ON tidb_spans.trace_id=es_logs.id
+	//INNER JOIN
+	//(
+	//   select app_name
+	//   From prometheus_metric
+	//   Where q='topk(3, sum by (app, proc) (rate(instance_cpu_time_ns[5m])))'
+	//)
+	//proms_metric ON proms_metric.app_name=tidb_spans.app_name`)
 	result.Check(testkit.Rows(
-		`2.0.0.222 3 ip: 2.0.0.222 此 ip 高危`,
-		`2.0.0.223 3 2.0.0.223: 此 ip 高危`))
+		`2 GET /api2`, `3 GET /api3`, `5 GET /api5`,
+	))
 }

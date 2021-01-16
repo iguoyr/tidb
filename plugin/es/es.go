@@ -1,4 +1,4 @@
-package es
+package main
 
 import (
 	"context"
@@ -71,12 +71,10 @@ func NewEsDoc(ip string, status int, id int64) EsDoc {
 	switch status {
 	case 200:
 		msg = "access web"
-
 	case 401:
 		msg = "unauthorized"
 	case 500:
 		msg = "Server Error"
-
 	default:
 		msg = "UNKNOWN"
 	}
@@ -85,15 +83,14 @@ func NewEsDoc(ip string, status int, id int64) EsDoc {
 		Id:   id,
 		Body: fmt.Sprintf(`{"status": %d, "IP": "%s", "message": "ip:%s is %s"}`, status, ip, ip, msg),
 	}
-
 }
 
 var data = []EsDoc{
-	NewEsDoc("1.0.0.202", 200, 1),
-	NewEsDoc("2.0.0.202", 200, 2),
+	NewEsDoc("1.0.0.202", 500, 1),
+	NewEsDoc("2.0.0.202", 401, 2),
 	NewEsDoc("3.0.0.202", 200, 3),
 	NewEsDoc("3.0.0.201", 500, 4),
-	NewEsDoc("1.0.0.220", 200, 5),
+	NewEsDoc("1.0.0.220", 500, 5),
 	NewEsDoc("1.0.0.221", 200, 6),
 	NewEsDoc("2.0.0.222", 500, 7),
 	NewEsDoc("1.0.0.224", 200, 8),

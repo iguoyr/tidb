@@ -458,6 +458,15 @@ func GetAll() map[Kind][]Plugin {
 	return plugins.plugins
 }
 
+func HasEngine(name string) bool {
+	p := Get(Engine, name)
+	if p != nil {
+		return true
+	}
+
+	return false
+}
+
 //// NotifyFlush notify plugins to do flush logic.
 //func NotifyFlush(dom *domain.Domain, pluginName string) error {
 //	p := getByName(pluginName)
@@ -498,12 +507,4 @@ func getByName(pluginName string) *Plugin {
 		}
 	}
 	return nil
-}
-
-func ListByKind(kind Kind) []Plugin {
-	plugins := pluginGlobal.plugins()
-	if plugins == nil {
-		return nil
-	}
-	return plugins.plugins[kind]
 }

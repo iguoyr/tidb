@@ -23,7 +23,6 @@ func (e *PluginScanExecutor) Open(ctx context.Context) error {
 	e.pm = plugin.DeclareEngineManifest(e.Plugin.Manifest)
 	e.meta = &plugin.ExecutorMeta{
 		Table:  e.Table,
-		Schema: e.baseExecutor.Schema(),
 	}
 	if e.pm.OnReaderOpen != nil {
 		return e.pm.OnReaderOpen(ctx, e.meta)
@@ -53,7 +52,6 @@ func (e *PluginInsertExec) Open(ctx context.Context) error {
 	e.pm = plugin.DeclareEngineManifest(e.Plugin.Manifest)
 	e.meta = &plugin.ExecutorMeta{
 		Table:  e.InsertE.Table.Meta(),
-		Schema: e.baseExecutor.Schema(),
 	}
 	return e.pm.OnInsertOpen(ctx, e.meta)
 }
@@ -80,7 +78,6 @@ func (e *PluginSelectionExec) Open(ctx context.Context) error {
 	e.pm = plugin.DeclareEngineManifest(e.Plugin.Manifest)
 	e.meta = &plugin.ExecutorMeta{
 		Table:   e.Table,
-		Schema:  e.baseExecutor.Schema(),
 		Columns: e.Columns,
 	}
 	if e.pm.OnSelectReaderOpen != nil {
