@@ -1,6 +1,6 @@
-name = "grpc"
+name = "prometheus"
 kind = "Engine"
-description = "grpc support"
+description = "prometheus support"
 version = "1"
 license = ""
 validate = "Validate"

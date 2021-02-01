@@ -88,26 +88,30 @@ func (s *testPlugin) TestPlugin(c *C) {
 	}
 
 	tk.MustExec("use test")
-	tk.MustExec("create server prometheus1 foreign data wrapper grpc address=127.0.0.1 port=9091")
-	tk.MustExec("create table proms_metric(span_kind char(255), duration int(64), query text) engine=grpc")
+	tk.MustExec("create server prom1 foreign data wrapper prometheus address=127.0.0.1 port=9090")
+	tk.MustExec("create foreign table if not exist proms_metric(span_kind char(255), duration int(64), query text) server prom1")
 	result = tk.MustQuery("select span_kind from proms_metric where query='topk(3, sum by (span_kind) (rate(query_response_time[5m])))'")
-	result.Check(testkit.Rows("GET /api5", "GET /api3", "GET /api2"))
+	result.Check(testkit.Rows("HashJoin_16", "Selection_23", "TableFullScan_19"))
 
 	tk.MustExec("drop table if exists root_span")
-	tk.MustExec(`create table root_span(timeStamp char(255),
-span_id int,
-trace_id int,
+	tk.MustExec(`create table root_span(
+timeStamp char(255),
+span_id char(255),
+trace_id char(255),
 span_kind char(255),
 duration char(255))`)
-	tk.MustExec(`insert into root_span values("02:13:13", "750dc35a-3eaa-4d13-bfdb-3a834f05a538","750dc35a-3eaa-4d13-bfdb-3a834f05a538",)`)
-	tk.MustExec(`insert into root_span values(2, "GET /api2", "msg 2") ,
-(3, "GET /api3", "msg 3"),(4, "GET /api4", "msg 4"),(5, "GET /api5", "msg 5")`)
-	result = tk.MustQuery(`Select * from root_span`)
-	result.Check(testkit.Rows("1 GET /api1 msg 1",
-		"2 GET /api2 msg 2",
-		"3 GET /api3 msg 3",
-		"4 GET /api4 msg 4",
-		"5 GET /api5 msg 5"))
+	tk.MustExec(`insert into root_span values
+("02:13:13", "750dc35a-3eaa-4d13-bfdb-3a834f05a538","750dc35a-3eaa-4d13-bfdb-3a834f05a538","HashJoin_16","25348")`)
+	tk.MustExec(`insert into root_span values
+("02:13:13", "6793231e-33ec-4321-aac9-0d492db6d944","6793231e-33ec-4321-aac9-0d492db6d944","TableReader_5","13"),
+("02:13:13", "e553feb6-65c6-4a28-b88a-7ddc6d39a70b","e553feb6-65c6-4a28-b88a-7ddc6d39a70b","TableFullScan_4","23"),
+("02:13:13", "70b18c54-ceaf-45d3-bcd4-c9ed36093ccf","70b18c54-ceaf-45d3-bcd4-c9ed36093ccf","TableFullScan_19","44")`)
+	result = tk.MustQuery(`select * from root_span`)
+	result.Check(testkit.Rows(
+		"02:13:13 750dc35a-3eaa-4d13-bfdb-3a834f05a538 750dc35a-3eaa-4d13-bfdb-3a834f05a538 HashJoin_16 25348",
+		"02:13:13 6793231e-33ec-4321-aac9-0d492db6d944 6793231e-33ec-4321-aac9-0d492db6d944 TableReader_5 13",
+		"02:13:13 e553feb6-65c6-4a28-b88a-7ddc6d39a70b e553feb6-65c6-4a28-b88a-7ddc6d39a70b TableFullScan_4 23",
+		"02:13:13 70b18c54-ceaf-45d3-bcd4-c9ed36093ccf 70b18c54-ceaf-45d3-bcd4-c9ed36093ccf TableFullScan_19 44"))
 
 	result = tk.MustQuery(`
 SELECT root_span.span_id, root_span.span_kind
@@ -119,18 +123,20 @@ INNER JOIN
    Where query='topk(3, sum by (span_kind) (rate(span_duration[5m])))'
 )
 proms_metric ON proms_metric.span_kind=root_span.span_kind`)
-
-	//	result = tk.MustQuery(`SELECT tidb_spans.time, tidb_spans.duration, es_logs.msg
-	//From tidb_spans
-	//INNER JOIN es_logs ON tidb_spans.trace_id=es_logs.id
-	//INNER JOIN
-	//(
-	//   select app_name
-	//   From prometheus_metric
-	//   Where q='topk(3, sum by (app, proc) (rate(instance_cpu_time_ns[5m])))'
-	//)
-	//proms_metric ON proms_metric.app_name=tidb_spans.app_name`)
 	result.Check(testkit.Rows(
-		`2 GET /api2`, `3 GET /api3`, `5 GET /api5`,
+		`750dc35a-3eaa-4d13-bfdb-3a834f05a538 HashJoin_16`,
+		`70b18c54-ceaf-45d3-bcd4-c9ed36093ccf TableFullScan_19`,
 	))
+
+	result = tk.MustQuery(`
+SELECT es_logs.span_id, es_logs.trace_id, es_logs.span_kind
+From es_logs
+INNER JOIN root_span ON root_span.span_id=es_logs.trace_id
+INNER JOIN
+(
+   select span_kind
+   From proms_metric
+   Where query='topk(3, sum by (span_kind) (rate(instance_cpu_time_ns[5m])))'
+)
+proms_metric ON proms_metric.span_kind=root_span.span_kind`)
 }

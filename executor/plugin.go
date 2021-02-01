@@ -22,7 +22,8 @@ type PluginScanExecutor struct {
 func (e *PluginScanExecutor) Open(ctx context.Context) error {
 	e.pm = plugin.DeclareEngineManifest(e.Plugin.Manifest)
 	e.meta = &plugin.ExecutorMeta{
-		Table:  e.Table,
+		Table:   e.Table,
+		Columns: e.Columns,
 	}
 	if e.pm.OnReaderOpen != nil {
 		return e.pm.OnReaderOpen(ctx, e.meta)
@@ -51,7 +52,7 @@ type PluginInsertExec struct {
 func (e *PluginInsertExec) Open(ctx context.Context) error {
 	e.pm = plugin.DeclareEngineManifest(e.Plugin.Manifest)
 	e.meta = &plugin.ExecutorMeta{
-		Table:  e.InsertE.Table.Meta(),
+		Table: e.InsertE.Table.Meta(),
 	}
 	return e.pm.OnInsertOpen(ctx, e.meta)
 }

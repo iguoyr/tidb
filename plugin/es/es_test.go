@@ -88,10 +88,10 @@ func (s *testPlugin) TestPlugin(c *C) {
 	}
 
 	tk.MustExec("use test")
-	tk.MustExec("create table logs(ID int, body text, query text) engine=elasticsearch")
-	result = tk.MustQuery("select body->'$.status' as Status from logs where query='!(status:200) OR error'")
+	tk.MustExec("create table es_logs(timestamp char(255), span_kind text, span_id text, trace_id text, duration text, query text) engine=es")
+	result = tk.MustQuery("select body->'$.status' as Status from es_logs where query='!(status:200) OR error'")
 	result.Check(testkit.Rows("500", "500", "401"))
-	result = tk.MustQuery(`SELECT body->'$.IP' as ip FROM logs where query='!(status:200) OR error'`)
+	result = tk.MustQuery(`SELECT body->'$.IP' as ip FROM es_logs where query='!(status:200) OR error'`)
 	result.Check(testkit.Rows(`"3.0.0.201"`, `"2.0.0.222"`, `"2.0.0.223"`))
 
 	tk.MustExec("drop table if exists blacklist")

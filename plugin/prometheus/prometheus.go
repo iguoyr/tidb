@@ -15,7 +15,7 @@ import (
 )
 
 func NewManifest() *plugin.EngineManifest {
-	pluginName := "grpc"
+	pluginName := "prometheus"
 	pluginVersion := uint16(1)
 	return &plugin.EngineManifest{
 		Manifest: plugin.Manifest{
@@ -42,19 +42,19 @@ func NewManifest() *plugin.EngineManifest {
 
 // Validate implements TiDB plugin's Validate SPI.
 func Validate(ctx context.Context, m *plugin.Manifest) error {
-	fmt.Println("grpc plugin validate")
+	fmt.Println("prometheus plugin validate")
 	return nil
 }
 
 // OnInit implements TiDB plugin's OnInit SPI.
 func OnInit(ctx context.Context, manifest *plugin.Manifest) error {
-	fmt.Println("grpc init called")
+	fmt.Println("prometheus init called")
 	return nil
 }
 
 // OnShutdown implements TiDB plugin's OnShutdown SPI.
 func OnShutdown(ctx context.Context, manifest *plugin.Manifest) error {
-	fmt.Println("grpc shutdown called")
+	fmt.Println("prometheus shutdown called")
 	return nil
 }
 
@@ -73,11 +73,11 @@ func NewPrometheusMetric(spanKind string, duration int64) PrometheusMetric {
 }
 
 var data = []PrometheusMetric{
-	NewPrometheusMetric("GET /api1", 1),
-	NewPrometheusMetric("GET /api2", 20),
-	NewPrometheusMetric("GET /api3", 300),
-	NewPrometheusMetric("GET /api4", 4),
-	NewPrometheusMetric("GET /api5", 5000),
+	NewPrometheusMetric("HashJoin_16", 25348),
+	NewPrometheusMetric("TableReader_5", 12),
+	NewPrometheusMetric("TableFullScan_4", 23),
+	NewPrometheusMetric("TableFullScan_19", 44),
+	NewPrometheusMetric("Selection_23", 55),
 }
 
 type MetricSlice []PrometheusMetric
@@ -95,13 +95,13 @@ func (s MetricSlice) Less(i, j int) bool {
 }
 
 func OnReaderOpen(ctx context.Context, meta *plugin.ExecutorMeta) error {
-	fmt.Println("grpc on reader open called")
+	fmt.Println("prometheus on reader open called")
 	pos = -1
 	return nil
 }
 
 func OnReaderNext(ctx context.Context, chk *chunk.Chunk, meta *plugin.ExecutorMeta) error {
-	fmt.Println("grpc on reader next called")
+	fmt.Println("prometheus on reader next called")
 	chk.Reset()
 	pos += 1
 	if pos >= len(data) {
@@ -125,7 +125,7 @@ func copyData() MetricSlice {
 
 // 获得selected([]interface)
 func OnSelectReaderOpen(ctx context.Context, filters []expression.Expression, meta *plugin.ExecutorMeta) error {
-	fmt.Println("grpc on select reader open called")
+	fmt.Println("prometheus on select reader open called")
 	SPos = -1
 	Selected = make([]interface{}, 0)
 
@@ -161,7 +161,7 @@ func OnSelectReaderOpen(ctx context.Context, filters []expression.Expression, me
 // 根据selected([]interface)注入到chunk中
 func OnSelectReaderNext(ctx context.Context, chk *chunk.Chunk,
 	filters []expression.Expression, meta *plugin.ExecutorMeta) error {
-	fmt.Println("grpc on select reader next called")
+	fmt.Println("prometheus on select reader next called")
 	chk.Reset()
 	SPos += 1
 	if SPos >= len(Selected) {
@@ -188,5 +188,8 @@ func MetricsToChk(chk *chunk.Chunk, doc interface{}, meta *plugin.ExecutorMeta) 
 	}
 	if idx := expression.FindFieldNameIdxByColName(names, "duration"); idx != -1 {
 		chk.AppendInt64(idx, metric.Duration)
+	}
+	if idx := expression.FindFieldNameIdxByColName(names, "query"); idx != -1 {
+		chk.AppendNull(idx)
 	}
 }
