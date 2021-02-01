@@ -172,6 +172,16 @@ func (is *infoSchema) SchemaExists(schema model.CIStr) bool {
 	return ok
 }
 
+func (is *infoSchema) ExtensionByName(extension model.CIStr) (err error){
+
+	return nil
+}
+
+func (is *infoSchema) ForeignServerByName(schema, table model.CIStr)(err error){
+
+	return nil
+}
+
 func (is *infoSchema) TableByName(schema, table model.CIStr) (t table.Table, err error) {
 	if tbNames, ok := is.schemaMap[schema.L]; ok {
 		if t, ok = tbNames.tables[table.L]; ok {

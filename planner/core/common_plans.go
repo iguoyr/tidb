@@ -1000,6 +1000,24 @@ func (e *Explain) RenderResult() error {
 	return nil
 }
 
+func getStoreStr(storeType kv.StoreType, pluginStoreType string) string {
+	if storeType == kv.PluginEngine {
+		return pluginStoreType
+	}
+	return storeType.Name()
+}
+
+func getTaskType(p Plan, taskTypeDefault string) string {
+	switch x := p.(type) {
+	case *PhysicalTableScan:
+		return getStoreStr(x.StoreType, x.EngineName)
+	case *PhysicalIndexScan:
+		return getStoreStr(x.StoreType, x.EngineName)
+	default:
+		return taskTypeDefault
+	}
+}
+
 // explainPlanInRowFormat generates explain information for root-tasks.
 func (e *Explain) explainPlanInRowFormat(p Plan, taskType, driverSide, indent string, isLastChild bool) (err error) {
 	e.prepareOperatorInfo(p, taskType, driverSide, indent, isLastChild)
@@ -1059,19 +1077,15 @@ func (e *Explain) explainPlanInRowFormat(p Plan, taskType, driverSide, indent st
 	switch x := p.(type) {
 	case *PhysicalTableReader:
 		var storeType string
-		switch x.StoreType {
-		case kv.TiKV, kv.TiFlash, kv.TiDB:
-			// expected do nothing
-		default:
-			return errors.Errorf("the store type %v is unknown", x.StoreType)
-		}
-		storeType = x.StoreType.Name()
+		storeType = getStoreStr(x.StoreType, x.EngineName)
 		err = e.explainPlanInRowFormat(x.tablePlan, "cop["+storeType+"]", "", childIndent, true)
 	case *PhysicalIndexReader:
 		err = e.explainPlanInRowFormat(x.indexPlan, "cop[tikv]", "", childIndent, true)
 	case *PhysicalIndexLookUpReader:
-		err = e.explainPlanInRowFormat(x.indexPlan, "cop[tikv]", "(Build)", childIndent, false)
-		err = e.explainPlanInRowFormat(x.tablePlan, "cop[tikv]", "(Probe)", childIndent, true)
+		taskType := getTaskType(x.indexPlan, "cop[tikv]")
+		err = e.explainPlanInRowFormat(x.indexPlan, taskType, "(Build)", childIndent, false)
+		taskType = getTaskType(x.tablePlan, "cop[tikv]")
+		err = e.explainPlanInRowFormat(x.tablePlan, taskType, "(Probe)", childIndent, true)
 	case *PhysicalIndexMergeReader:
 		for _, pchild := range x.partialPlans {
 			err = e.explainPlanInRowFormat(pchild, "cop[tikv]", "(Build)", childIndent, false)

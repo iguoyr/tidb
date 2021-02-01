@@ -38,6 +38,10 @@ func DeclareDaemonManifest(m *Manifest) *DaemonManifest {
 	return (*DaemonManifest)(unsafe.Pointer(m))
 }
 
+func DeclareEngineManifest(m *Manifest) *EngineManifest{
+	return (*EngineManifest)(unsafe.Pointer(m))
+}
+
 // ID present plugin identity.
 type ID string
 

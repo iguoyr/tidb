@@ -20,6 +20,7 @@ package ddl
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/pingcap/tidb/plugin"
 	"math"
 	"strconv"
 	"strings"
@@ -1719,6 +1720,11 @@ func (d *ddl) assignPartitionIDs(defs []model.PartitionDefinition) error {
 	return nil
 }
 
+func (d *ddl) CreateForeignServer(ctx sessionctx.Context, s *ast.CreateServerStmt) (err error) {
+
+	return nil
+}
+
 func (d *ddl) CreateTable(ctx sessionctx.Context, s *ast.CreateTableStmt) (err error) {
 	ident := ast.Ident{Schema: s.Table.Schema, Name: s.Table.Name}
 	is := d.GetInfoSchemaWithInterceptor(ctx)
@@ -1749,6 +1755,24 @@ func (d *ddl) CreateTable(ctx sessionctx.Context, s *ast.CreateTableStmt) (err e
 	}
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	engine := findTableOption(s.Options, ast.TableOptionEngine, "InnoDB")
+	if engine != "InnoDB" {
+		p := plugin.Get(plugin.Engine, engine)
+		if p == nil {
+			return infoschema.ErrorEngineError.GenWithStackByArgs(404)
+		}
+		tbInfo.Engine = engine
+		pm := plugin.DeclareEngineManifest(p.Manifest)
+		if pm.OnCreateTable != nil {
+			err = pm.OnCreateTable(tbInfo)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		tbInfo.Engine = "InnoDB"
 	}
 
 	if err = checkTableInfoValidWithStmt(ctx, tbInfo, s); err != nil {
@@ -1960,6 +1984,19 @@ func (d *ddl) CreateView(ctx sessionctx.Context, s *ast.CreateViewStmt) (err err
 	}
 
 	return d.CreateTableWithInfo(ctx, s.ViewName.Schema, tbInfo, onExist, false /*tryRetainID*/)
+}
+
+func findTableOption(options []*ast.TableOption, tp ast.TableOptionType, _default string) string {
+	value := _default
+	for i := len(options) - 1; i >= 0; i-- {
+		op := options[i]
+		if op.Tp == tp {
+			// find the last one.
+			value = op.StrValue
+			break
+		}
+	}
+	return value
 }
 
 func buildViewInfo(ctx sessionctx.Context, s *ast.CreateViewStmt) (*model.ViewInfo, error) {
@@ -4398,6 +4435,17 @@ func (d *ddl) DropTable(ctx sessionctx.Context, ti ast.Ident) (err error) {
 	}
 	if tb.Meta().IsSequence() {
 		return infoschema.ErrTableNotExists.GenWithStackByArgs(ti.Schema, ti.Name)
+	}
+
+	if plugin.HasEngine(tb.Meta().Engine) {
+		p := plugin.Get(plugin.Engine, tb.Meta().Engine)
+		pm := plugin.DeclareEngineManifest(p.Manifest)
+		if pm.OnDropTable != nil {
+			err = pm.OnDropTable(tb.Meta())
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	job := &model.Job{

@@ -16,6 +16,7 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"github.com/pingcap/tidb/plugin"
 	"math"
 	"sort"
 
@@ -905,6 +906,10 @@ func (p *LogicalJoin) constructInnerTableScanTask(
 		physicalTableID: ds.physicalTableID,
 		isPartition:     ds.isPartition,
 	}.Init(ds.ctx, ds.blockOffset)
+	if plugin.HasEngine(ds.tableInfo.Engine) {
+		ts.StoreType = kv.PluginEngine
+		ts.EngineName =ds.tableInfo.Engine
+	}
 	ts.SetSchema(ds.schema.Clone())
 	if rowCount <= 0 {
 		rowCount = float64(1)
@@ -1000,6 +1005,10 @@ func (p *LogicalJoin) constructInnerIndexScanTask(
 		isPartition:      ds.isPartition,
 		physicalTableID:  ds.physicalTableID,
 	}.Init(ds.ctx, ds.blockOffset)
+	if plugin.HasEngine(ds.tableInfo.Engine) {
+		is.StoreType = kv.PluginEngine
+		is.EngineName = ds.tableInfo.Engine
+	}
 	cop := &copTask{
 		indexPlan:   is,
 		tblColHists: ds.TblColHists,
@@ -1021,6 +1030,10 @@ func (p *LogicalJoin) constructInnerIndexScanTask(
 			isPartition:     ds.isPartition,
 			physicalTableID: ds.physicalTableID,
 		}.Init(ds.ctx, ds.blockOffset)
+		if plugin.HasEngine(ds.tableInfo.Engine) {
+			is.StoreType = kv.PluginEngine
+			is.EngineName = ds.tableInfo.Engine
+		}
 		ts.schema = is.dataSourceSchema.Clone()
 		// If inner cop task need keep order, the extraHandleCol should be set.
 		if cop.keepOrder && !ds.tableInfo.IsCommonHandle {

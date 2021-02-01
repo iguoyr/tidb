@@ -14,6 +14,7 @@
 package core
 
 import (
+	"github.com/pingcap/tidb/plugin"
 	"math"
 
 	"github.com/pingcap/errors"
@@ -899,6 +900,10 @@ func (ds *DataSource) buildIndexMergeTableScan(prop *property.PhysicalProperty, 
 		physicalTableID: ds.physicalTableID,
 		HandleCols:      ds.handleCols,
 	}.Init(ds.ctx, ds.blockOffset)
+	if plugin.HasEngine(ds.tableInfo.Engine) {
+		ts.StoreType = kv.PluginEngine
+		ts.EngineName =ds.tableInfo.Engine
+	}
 	ts.SetSchema(ds.schema.Clone())
 	if ts.HandleCols == nil {
 		handleCol := ds.getPKIsHandleCol()
@@ -1021,6 +1026,10 @@ func (ds *DataSource) convertToIndexScan(prop *property.PhysicalProperty, candid
 			isPartition:     ds.isPartition,
 			physicalTableID: ds.physicalTableID,
 		}.Init(ds.ctx, is.blockOffset)
+		if plugin.HasEngine(ds.tableInfo.Engine) {
+			ts.StoreType = kv.PluginEngine
+			ts.EngineName =ds.tableInfo.Engine
+		}
 		ts.SetSchema(ds.schema.Clone())
 		cop.tablePlan = ts
 	}
@@ -1431,6 +1440,10 @@ func (s *LogicalTableScan) GetPhysicalScan(schema *expression.Schema, stats *pro
 		Ranges:          s.Ranges,
 		AccessCondition: s.AccessConds,
 	}.Init(s.ctx, s.blockOffset)
+	if plugin.HasEngine(ds.tableInfo.Engine) {
+		ts.StoreType = kv.PluginEngine
+		ts.EngineName =ds.tableInfo.Engine
+	}
 	ts.stats = stats
 	ts.SetSchema(schema.Clone())
 	if ts.Table.PKIsHandle {
@@ -1740,6 +1753,10 @@ func (ds *DataSource) getOriginalPhysicalTableScan(prop *property.PhysicalProper
 		StoreType:       path.StoreType,
 		IsGlobalRead:    path.IsTiFlashGlobalRead,
 	}.Init(ds.ctx, ds.blockOffset)
+	if plugin.HasEngine(ds.tableInfo.Engine) {
+		ts.StoreType = kv.PluginEngine
+		ts.EngineName =ds.tableInfo.Engine
+	}
 	ts.SetSchema(ds.schema.Clone())
 	if ts.Table.PKIsHandle {
 		if pkColInfo := ts.Table.GetPkColInfo(); pkColInfo != nil {
@@ -1817,6 +1834,10 @@ func (ds *DataSource) getOriginalPhysicalIndexScan(prop *property.PhysicalProper
 		isPartition:      ds.isPartition,
 		physicalTableID:  ds.physicalTableID,
 	}.Init(ds.ctx, ds.blockOffset)
+	if plugin.HasEngine(ds.tableInfo.Engine){
+		is.StoreType = kv.PluginEngine
+		is.EngineName = ds.tableInfo.Engine
+	}
 	statsTbl := ds.statisticTable
 	if statsTbl.Indices[idx.ID] != nil {
 		is.Hist = &statsTbl.Indices[idx.ID].Histogram

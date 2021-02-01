@@ -16,6 +16,8 @@ package executor
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"github.com/pingcap/tidb/plugin"
 	"sort"
 	"strings"
 	"sync"
@@ -234,6 +236,8 @@ func (b *executorBuilder) build(p plannercore.Plan) Executor {
 		return b.buildAdminShowTelemetry(v)
 	case *plannercore.AdminResetTelemetryID:
 		return b.buildAdminResetTelemetryID(v)
+	case *plannercore.PhysicalTableScan:
+		return b.buildTableScan(v)
 	default:
 		if mp, ok := p.(MockPhysicalPlan); ok {
 			return mp.GetExecutor()
@@ -775,6 +779,14 @@ func (b *executorBuilder) buildInsert(v *plannercore.Insert) Executor {
 	insert := &InsertExec{
 		InsertValues: ivs,
 		OnDuplicate:  append(v.OnDuplicate, v.GenCols.OnDuplicates...),
+	}
+	fmt.Println(">>>>>", v.Table.Meta().Engine, v.Table.Meta().Name.String())
+	if plugin.HasEngine(v.Table.Meta().Engine) {
+		return &PluginInsertExec{
+			Plugin:       plugin.Get(plugin.Engine, v.Table.Meta().Engine),
+			InsertE:      insert,
+			baseExecutor: baseExec,
+		}
 	}
 	return insert
 }
@@ -2590,6 +2602,21 @@ func (b *executorBuilder) buildMPPGather(v *plannercore.PhysicalTableReader) Exe
 // buildTableReader builds a table reader executor. It first build a no range table reader,
 // and then update it ranges from table scan plan.
 func (b *executorBuilder) buildTableReader(v *plannercore.PhysicalTableReader) Executor {
+	ts := v.GetTableScan()
+	if plugin.HasEngine(ts.Table.Engine) {
+		if len(v.TablePlans) == 2 {
+			p := plugin.Get(plugin.Engine, ts.Table.Engine)
+			pm := plugin.DeclareEngineManifest(p.Manifest)
+
+			if tSelect, ok := v.TablePlans[1].(*plannercore.PhysicalSelection); ok {
+				if pm.OnSelectReaderNext != nil {
+					return b.buildReaderWithSelection(tSelect, p, ts)
+				}
+				return b.buildSelection(tSelect)
+			}
+		}
+		return b.buildTableScan(ts)
+	}
 	if useMPPExecution(b.ctx, v) {
 		return b.buildMPPGather(v)
 	}
@@ -2599,7 +2626,6 @@ func (b *executorBuilder) buildTableReader(v *plannercore.PhysicalTableReader) E
 		return nil
 	}
 
-	ts := v.GetTableScan()
 	ret.ranges = ts.Ranges
 	sctx := b.ctx.GetSessionVars().StmtCtx
 	sctx.TableIDs = append(sctx.TableIDs, ts.Table.ID)
@@ -2658,6 +2684,16 @@ func (b *executorBuilder) buildTableReader(v *plannercore.PhysicalTableReader) E
 	}
 
 	return ret
+}
+
+func (b *executorBuilder) buildReaderWithSelection(v *plannercore.PhysicalSelection, p *plugin.Plugin, c *plannercore.PhysicalTableScan) Executor {
+	return &PluginSelectionExec{
+		baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ID()),
+		Plugin:       p,
+		filter:       v.Conditions,
+		Table:        c.Table,
+		Columns:  c.Columns,
+	}
 }
 
 func buildPartitionTable(b *executorBuilder, tblInfo *model.TableInfo, partitionInfo *plannercore.PartitionInfo, e Executor, n nextPartition) (Executor, error) {
@@ -3917,6 +3953,15 @@ func (b *executorBuilder) buildAdminShowTelemetry(v *plannercore.AdminShowTeleme
 
 func (b *executorBuilder) buildAdminResetTelemetryID(v *plannercore.AdminResetTelemetryID) Executor {
 	return &AdminResetTelemetryIDExec{baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ID())}
+}
+
+func (b *executorBuilder) buildTableScan(v *plannercore.PhysicalTableScan) Executor {
+	return &PluginScanExecutor{
+		baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ID()),
+		Plugin:       plugin.Get(plugin.Engine, v.EngineName),
+		Table:        v.Table,
+		Columns:      v.Columns,
+	}
 }
 
 func partitionPruning(ctx sessionctx.Context, tbl table.PartitionedTable, conds []expression.Expression, partitionNames []model.CIStr,

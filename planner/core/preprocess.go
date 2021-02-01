@@ -910,10 +910,11 @@ var mysqlValidTableEngineNames = map[string]struct{}{
 	"heap":       {},
 }
 
+// FIXME: hack
 func checkTableEngine(engineName string) error {
-	if _, have := mysqlValidTableEngineNames[strings.ToLower(engineName)]; !have {
-		return ddl.ErrUnknownEngine.GenWithStackByArgs(engineName)
-	}
+	//if _, have := mysqlValidTableEngineNames[strings.ToLower(engineName)]; !have {
+	//	return ddl.ErrUnknownEngine.GenWithStackByArgs(engineName)
+	//}
 	return nil
 }
 

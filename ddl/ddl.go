@@ -167,6 +167,8 @@ type DDL interface {
 	SetBinlogClient(*pumpcli.PumpsClient)
 	// GetHook gets the hook. It's exported for testing.
 	GetHook() Callback
+
+	CreateForeignServer(ctx sessionctx.Context, stmt *ast.CreateServerStmt) (err error)
 }
 
 type limitJobTask struct {

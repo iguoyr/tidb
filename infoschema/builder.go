@@ -50,6 +50,8 @@ func (b *Builder) ApplyDiff(m *meta.Meta, diff *model.SchemaDiff) ([]int64, erro
 		return tblIDs, nil
 	case model.ActionModifySchemaCharsetAndCollate:
 		return nil, b.applyModifySchemaCharsetAndCollate(m, diff)
+	//case model.ActionCreateServer:
+	//	return nil,
 	}
 	roDBInfo, ok := b.is.SchemaByID(diff.SchemaID)
 	if !ok {
@@ -250,6 +252,12 @@ func (b *Builder) applyCreateSchema(m *meta.Meta, diff *model.SchemaDiff) error 
 		)
 	}
 	b.is.schemaMap[di.Name.L] = &schemaTables{dbInfo: di, tables: make(map[string]table.Table)}
+	return nil
+}
+
+// TODO add server infoschema
+func (b *Builder) applyCreateForeignServer(m *meta.Meta, diff *model.SchemaDiff) error {
+
 	return nil
 }
 

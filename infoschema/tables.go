@@ -1711,9 +1711,7 @@ func (it *infoschemaTable) getRows(ctx sessionctx.Context, cols []*table.Column)
 	case tableSessionStatus:
 	case tableOptimizerTrace:
 	case tableTableSpaces:
-	}
-	if err != nil {
-		return nil, err
+	// FIXME: hackathon 2019 have thi
 	}
 	if len(cols) == len(it.cols) {
 		return

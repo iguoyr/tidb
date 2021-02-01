@@ -90,6 +90,8 @@ func (e *DDLExec) Next(ctx context.Context, req *chunk.Chunk) (err error) {
 		err = e.executeCreateDatabase(x)
 	case *ast.CreateTableStmt:
 		err = e.executeCreateTable(x)
+	case *ast.CreateServerStmt:
+		err = e.executeCreateForeignServer(x)
 	case *ast.CreateViewStmt:
 		err = e.executeCreateView(x)
 	case *ast.DropIndexStmt:
@@ -203,6 +205,11 @@ func (e *DDLExec) executeAlterDatabase(s *ast.AlterDatabaseStmt) error {
 
 func (e *DDLExec) executeCreateTable(s *ast.CreateTableStmt) error {
 	err := domain.GetDomain(e.ctx).DDL().CreateTable(e.ctx, s)
+	return err
+}
+
+func (e *DDLExec) executeCreateForeignServer(s *ast.CreateServerStmt) error {
+	err := domain.GetDomain(e.ctx).DDL().CreateForeignServer(e.ctx, s)
 	return err
 }
 

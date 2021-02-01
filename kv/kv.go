@@ -349,6 +349,7 @@ const (
 	TiFlash
 	// TiDB means the type of a store is TiDB.
 	TiDB
+	PluginEngine
 	// UnSpecified means the store type is unknown
 	UnSpecified = 255
 )
